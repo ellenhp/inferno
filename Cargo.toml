@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "inferno-algorithms",
+    "inferno-tiles",
+]
+
+workspace.resolver = "2"
