@@ -2,7 +2,8 @@ use rkyv::Archive;
 use zerocopy::FromBytes;
 
 use crate::valhalla::{
-    directed_edge::ValhallaDirectedEdge, node_info::ValhallaNodeInfo,
+    access_restrictions::ValhallaAccessRestriction, directed_edge::ValhallaDirectedEdge,
+    directed_edge_ext::ValhallaDirectedEdgeExt, node_info::ValhallaNodeInfo,
     node_transition::ValhallaNodeTransition, tile_header::ValhallaTileHeader,
 };
 
@@ -11,11 +12,15 @@ pub struct InfernoTile {
     nodes: Vec<ValhallaNodeInfo>,
     node_transitions: Vec<ValhallaNodeTransition>,
     directed_edges: Vec<ValhallaDirectedEdge>,
+    access_restrictions: Vec<ValhallaAccessRestriction>,
 }
+
 const HEADER_SIZE: usize = size_of::<ValhallaTileHeader>();
 const NODE_INFO_SIZE: usize = size_of::<ValhallaNodeInfo>();
 const NODE_TRANSITION_SIZE: usize = size_of::<ValhallaNodeTransition>();
 const DIRECTED_EDGE_SIZE: usize = size_of::<ValhallaDirectedEdge>();
+const DIRECTED_EDGE_EXT_SIZE: usize = size_of::<ValhallaDirectedEdgeExt>();
+const ACCESS_RESTRICTION_SIZE: usize = size_of::<ValhallaAccessRestriction>();
 
 impl InfernoTile {
     pub fn from_valhalla(bytes: &[u8]) -> Result<InfernoTile, anyhow::Error> {
@@ -28,6 +33,7 @@ impl InfernoTile {
         let mut nodes = Vec::new();
         let mut node_transitions = Vec::new();
         let mut directed_edges = Vec::new();
+        let mut access_restrictions = Vec::new();
 
         let mut ptr = HEADER_SIZE;
 
@@ -76,11 +82,28 @@ impl InfernoTile {
             directed_edges.push(edge);
             ptr += DIRECTED_EDGE_SIZE;
         }
+        if header.metadata.has_ext_directededge() {
+            ptr += DIRECTED_EDGE_EXT_SIZE * header.counts1.directed_edges_count();
+        }
+        for _ in 0..header.counts5.access_restriction_count() {
+            if ptr + ACCESS_RESTRICTION_SIZE >= bytes.len() {
+                return Err(anyhow::anyhow!(
+                    "Invalid tile: not enough bytes for specified access restriction count"
+                ));
+            }
+            let edge = ValhallaAccessRestriction::ref_from_bytes(
+                &bytes[ptr..ptr + ACCESS_RESTRICTION_SIZE],
+            )
+            .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
+            access_restrictions.push(edge);
+            ptr += ACCESS_RESTRICTION_SIZE;
+        }
 
         Ok(InfernoTile {
             nodes: nodes.into_iter().cloned().collect(),
             node_transitions: node_transitions.into_iter().cloned().collect(),
             directed_edges: directed_edges.into_iter().cloned().collect(),
+            access_restrictions: access_restrictions.into_iter().cloned().collect(),
         })
     }
 }
