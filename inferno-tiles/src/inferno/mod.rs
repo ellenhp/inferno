@@ -1,5 +1,5 @@
-use log::debug;
 use rkyv::Archive;
+use tracing::{debug, instrument, trace, warn};
 use zerocopy::FromBytes;
 
 use crate::valhalla::{
@@ -34,6 +34,7 @@ const SIGN_SIZE: usize = size_of::<ValhallaSign>();
 const ADMIN_SIZE: usize = size_of::<ValhallaAdmin>();
 
 impl InfernoTile {
+    #[instrument(skip(bytes))]
     pub fn from_valhalla(bytes: &[u8]) -> Result<InfernoTile, anyhow::Error> {
         if bytes.len() < HEADER_SIZE {
             return Err(anyhow::anyhow!("Invalid tile header"));
@@ -49,6 +50,11 @@ impl InfernoTile {
         let mut ptr = HEADER_SIZE;
 
         if header.tile_size as usize != bytes.len() {
+            warn!(
+                tile_size = header.tile_size,
+                actual_size = bytes.len(),
+                "Tile size mismatch"
+            );
             return Err(anyhow::anyhow!(
                 "Invalid tile size. Expected {} and found {}",
                 header.tile_size,
@@ -68,6 +74,11 @@ impl InfernoTile {
             nodes.push(node_info);
             ptr += NODE_INFO_SIZE;
         }
+        trace!(
+            "Parsed {} nodes, ptr: 0x{:x}",
+            header.counts1.node_count(),
+            ptr
+        );
         node_transitions.reserve_exact(header.counts2.transition_count());
         for _ in 0..header.counts2.transition_count() {
             if ptr + NODE_TRANSITION_SIZE >= bytes.len() {
@@ -81,6 +92,11 @@ impl InfernoTile {
             node_transitions.push(transition);
             ptr += NODE_TRANSITION_SIZE;
         }
+        trace!(
+            "Parsed {} transitions, ptr: 0x{:x}",
+            header.counts2.transition_count(),
+            ptr
+        );
         directed_edges.reserve_exact(header.counts1.directed_edges_count());
         for _ in 0..header.counts1.directed_edges_count() {
             if ptr + DIRECTED_EDGE_SIZE >= bytes.len() {
@@ -93,8 +109,20 @@ impl InfernoTile {
             directed_edges.push(edge);
             ptr += DIRECTED_EDGE_SIZE;
         }
+        trace!(
+            "Parsed {} directed edges, ptr: 0x{:x}",
+            header.counts1.directed_edges_count(),
+            ptr
+        );
         if header.metadata.has_ext_directededge() {
             ptr += DIRECTED_EDGE_EXT_SIZE * header.counts1.directed_edges_count();
+            trace!(
+                "Parsed {} directed edge extensions, ptr: 0x{:x}",
+                header.counts1.directed_edges_count(),
+                ptr
+            );
+        } else {
+            trace!("No directed edge extensions found");
         }
         for _ in 0..header.counts5.access_restriction_count() {
             if ptr + ACCESS_RESTRICTION_SIZE >= bytes.len() {
@@ -109,6 +137,11 @@ impl InfernoTile {
             access_restrictions.push(edge);
             ptr += ACCESS_RESTRICTION_SIZE;
         }
+        trace!(
+            "Parsed {} access restrictions, ptr: 0x{:x}",
+            header.counts5.access_restriction_count(),
+            ptr
+        );
 
         ptr += header.counts3.departure_count() * TRANSIT_DEPARTURE_SIZE;
         ptr += header.counts3.stop_count() * TRANSIT_STOP_SIZE;
@@ -119,7 +152,7 @@ impl InfernoTile {
         ptr += header.counts5.admin_count() * ADMIN_SIZE;
 
         debug!(
-            "[ValhallaTileHeader] parsed successfully. ptr: 0x{:x}, len: 0x{:x}",
+            "Valhalla tile parsed successfully. ptr: 0x{:x}, len: 0x{:x}",
             ptr,
             bytes.len()
         );

@@ -8,3 +8,5 @@ anyhow = "1.0.94"
 clap = { version = "4.5.23", features = ["derive"] }
 inferno-tiles = { path = "../inferno-tiles" }
 tar = "0.4.43"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
