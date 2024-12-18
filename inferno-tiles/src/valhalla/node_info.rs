@@ -6,7 +6,8 @@ use rkyv::Archive;
 pub struct ValhallaNodeInfo {
     pub(crate) position_info: ValhallaNodeInfoPositionInfo,
 
-    pub(crate) data: ValhallaNodeInfoData,
+    pub(crate) data1: ValhallaNodeInfoData1,
+    pub(crate) data2: ValhallaNodeInfoData2,
 
     /// For not transit levels its the headings of up to kMaxLocalEdgeIndex+1 local edges (rounded to
     /// nearest 2 degrees)for all other levels.
@@ -47,9 +48,9 @@ pub struct ValhallaNodeInfoPositionInfo {
     pub(crate) access: u16,
 }
 
-#[bitfield(u128)]
+#[bitfield(u64)]
 #[derive(Archive)]
-pub struct ValhallaNodeInfoData {
+pub struct ValhallaNodeInfoData1 {
     // uint64_t edge_index_ : 21;
     /// Index within the node's tile of its first outbound directed edge
     #[bits(21)]
@@ -99,7 +100,11 @@ pub struct ValhallaNodeInfoData {
     /// Is this a named intersection?
     #[bits(1)]
     pub(crate) is_named: bool,
+}
 
+#[bitfield(u64)]
+#[derive(Archive)]
+pub struct ValhallaNodeInfoData2 {
     // uint64_t transition_index_ : 21;
     /// Index into the node transitions to the first transition (used to store transit stop index for transit level)
     #[bits(21)]
