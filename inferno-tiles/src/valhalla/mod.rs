@@ -1,7 +1,13 @@
 pub(crate) mod access_restrictions;
+pub(crate) mod admin;
 pub(crate) mod directed_edge;
 pub(crate) mod directed_edge_ext;
 pub(crate) mod node_info;
 pub(crate) mod node_transition;
 pub(crate) mod sign;
 pub(crate) mod tile_header;
+pub(crate) mod transit_departure;
+pub(crate) mod transit_route;
+pub(crate) mod transit_schedule;
+pub(crate) mod transit_stop;
+pub(crate) mod transit_transfer;

@@ -1,10 +1,14 @@
+use log::debug;
 use rkyv::Archive;
 use zerocopy::FromBytes;
 
 use crate::valhalla::{
-    access_restrictions::ValhallaAccessRestriction, directed_edge::ValhallaDirectedEdge,
-    directed_edge_ext::ValhallaDirectedEdgeExt, node_info::ValhallaNodeInfo,
-    node_transition::ValhallaNodeTransition, tile_header::ValhallaTileHeader,
+    access_restrictions::ValhallaAccessRestriction, admin::ValhallaAdmin,
+    directed_edge::ValhallaDirectedEdge, directed_edge_ext::ValhallaDirectedEdgeExt,
+    node_info::ValhallaNodeInfo, node_transition::ValhallaNodeTransition, sign::ValhallaSign,
+    tile_header::ValhallaTileHeader, transit_departure::ValhallaTransitDeparture,
+    transit_route::ValhallaTransitRoute, transit_schedule::ValhallaTransitSchedule,
+    transit_stop::ValhallaTransitStop, transit_transfer::ValhallaTransitTransfer,
 };
 
 #[derive(Clone, Debug, Archive)]
@@ -21,6 +25,13 @@ const NODE_TRANSITION_SIZE: usize = size_of::<ValhallaNodeTransition>();
 const DIRECTED_EDGE_SIZE: usize = size_of::<ValhallaDirectedEdge>();
 const DIRECTED_EDGE_EXT_SIZE: usize = size_of::<ValhallaDirectedEdgeExt>();
 const ACCESS_RESTRICTION_SIZE: usize = size_of::<ValhallaAccessRestriction>();
+const TRANSIT_DEPARTURE_SIZE: usize = size_of::<ValhallaTransitDeparture>();
+const TRANSIT_STOP_SIZE: usize = size_of::<ValhallaTransitStop>();
+const TRANSIT_ROUTE_SIZE: usize = size_of::<ValhallaTransitRoute>();
+const TRANSIT_SCHEDULE_SIZE: usize = size_of::<ValhallaTransitSchedule>();
+const TRANSIT_TRANSFER_SIZE: usize = size_of::<ValhallaTransitTransfer>();
+const SIGN_SIZE: usize = size_of::<ValhallaSign>();
+const ADMIN_SIZE: usize = size_of::<ValhallaAdmin>();
 
 impl InfernoTile {
     pub fn from_valhalla(bytes: &[u8]) -> Result<InfernoTile, anyhow::Error> {
@@ -98,6 +109,20 @@ impl InfernoTile {
             access_restrictions.push(edge);
             ptr += ACCESS_RESTRICTION_SIZE;
         }
+
+        ptr += header.counts3.departure_count() * TRANSIT_DEPARTURE_SIZE;
+        ptr += header.counts3.stop_count() * TRANSIT_STOP_SIZE;
+        ptr += header.counts4.route_count() * TRANSIT_ROUTE_SIZE;
+        ptr += header.counts4.schedule_count() * TRANSIT_SCHEDULE_SIZE;
+        ptr += header.counts3.transfer_count() * TRANSIT_TRANSFER_SIZE;
+        ptr += header.counts4.sign_count() * SIGN_SIZE;
+        ptr += header.counts5.admin_count() * ADMIN_SIZE;
+
+        debug!(
+            "[ValhallaTileHeader] parsed successfully. ptr: 0x{:x}, len: 0x{:x}",
+            ptr,
+            bytes.len()
+        );
 
         Ok(InfernoTile {
             nodes: nodes.into_iter().cloned().collect(),

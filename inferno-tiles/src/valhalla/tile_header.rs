@@ -139,7 +139,7 @@ pub(crate) struct ValhallaTileHeaderCounts2 {
 pub(crate) struct ValhallaTileHeaderCounts3 {
     // uint64_t transfercount_ : 16;
     #[bits(16)]
-    pub(crate) transfer_count: u32,
+    pub(crate) transfer_count: usize,
 
     // uint64_t spare2_ : 7;
     #[bits(7)]
@@ -147,11 +147,11 @@ pub(crate) struct ValhallaTileHeaderCounts3 {
 
     // uint64_t departurecount_ : 24;
     #[bits(24)]
-    pub(crate) departure_count: u32,
+    pub(crate) departure_count: usize,
 
     // uint64_t stopcount_ : 16;
     #[bits(16)]
-    pub(crate) stop_count: u16,
+    pub(crate) stop_count: usize,
 
     // uint64_t spare5_ : 1;
     #[bits(1)]
@@ -163,15 +163,15 @@ pub(crate) struct ValhallaTileHeaderCounts3 {
 pub(crate) struct ValhallaTileHeaderCounts4 {
     // uint64_t routecount_ : 12;
     #[bits(12)]
-    pub(crate) route_count: u16,
+    pub(crate) route_count: usize,
 
     // uint64_t schedulecount_ : 12;
     #[bits(12)]
-    pub(crate) schedule_count: u16,
+    pub(crate) schedule_count: usize,
 
     // uint64_t signcount_ : 24;
     #[bits(24)]
-    pub(crate) sign_count: u32,
+    pub(crate) sign_count: usize,
 
     // uint64_t spare6_ : 16;
     #[bits(16)]
@@ -183,11 +183,11 @@ pub(crate) struct ValhallaTileHeaderCounts4 {
 pub(crate) struct ValhallaTileHeaderCounts5 {
     // uint64_t access_restriction_count_ : 24;
     #[bits(24)]
-    pub(crate) access_restriction_count: u32,
+    pub(crate) access_restriction_count: usize,
 
     // uint64_t admincount_ : 16;
     #[bits(16)]
-    pub(crate) admin_count: u32,
+    pub(crate) admin_count: usize,
 
     // uint64_t spare7_ : 24;
     #[bits(24)]
