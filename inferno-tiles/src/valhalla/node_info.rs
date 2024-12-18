@@ -1,8 +1,9 @@
 use bitfield_struct::bitfield;
 use rkyv::Archive;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 #[repr(C)]
-#[derive(Debug, Clone, Archive)]
+#[derive(Debug, Clone, Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaNodeInfo {
     pub(crate) position_info: ValhallaNodeInfoPositionInfo,
 
@@ -20,7 +21,7 @@ pub struct ValhallaNodeInfo {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaNodeInfoPositionInfo {
     // // 26 bits for lat,lon offset allows 7 digits of precision even in 4 degree tiles
     // // to stay backwards compatible we have to break 6 digits and the 7th digit into two parts
@@ -49,7 +50,7 @@ pub struct ValhallaNodeInfoPositionInfo {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaNodeInfoData1 {
     // uint64_t edge_index_ : 21;
     /// Index within the node's tile of its first outbound directed edge
@@ -103,7 +104,7 @@ pub struct ValhallaNodeInfoData1 {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaNodeInfoData2 {
     // uint64_t transition_index_ : 21;
     /// Index into the node transitions to the first transition (used to store transit stop index for transit level)

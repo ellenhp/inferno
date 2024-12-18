@@ -1,6 +1,5 @@
-use std::mem::transmute;
-
 use rkyv::Archive;
+use zerocopy::FromBytes;
 
 use crate::valhalla::{
     directed_edge::ValhallaDirectedEdge, node_info::ValhallaNodeInfo,
@@ -19,18 +18,18 @@ const NODE_TRANSITION_SIZE: usize = size_of::<ValhallaNodeTransition>();
 const DIRECTED_EDGE_SIZE: usize = size_of::<ValhallaDirectedEdge>();
 
 impl InfernoTile {
-    pub unsafe fn from_valhalla(bytes: &[u8]) -> Result<InfernoTile, anyhow::Error> {
+    pub fn from_valhalla(bytes: &[u8]) -> Result<InfernoTile, anyhow::Error> {
         if bytes.len() < HEADER_SIZE {
             return Err(anyhow::anyhow!("Invalid tile header"));
         }
-        let header =
-            transmute::<[u8; HEADER_SIZE], ValhallaTileHeader>(bytes[0..HEADER_SIZE].try_into()?);
+        let header = ValhallaTileHeader::ref_from_bytes(&bytes[0..HEADER_SIZE])
+            .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
 
         let mut nodes = Vec::new();
         let mut node_transitions = Vec::new();
         let mut directed_edges = Vec::new();
 
-        let mut ptr = dbg!(HEADER_SIZE);
+        let mut ptr = HEADER_SIZE;
 
         if header.tile_size as usize != bytes.len() {
             return Err(anyhow::anyhow!(
@@ -47,9 +46,8 @@ impl InfernoTile {
                     "Invalid tile: not enough bytes for specified node count"
                 ));
             }
-            let node_info = transmute::<[u8; NODE_INFO_SIZE], ValhallaNodeInfo>(
-                bytes[ptr..ptr + NODE_INFO_SIZE].try_into()?,
-            );
+            let node_info = ValhallaNodeInfo::ref_from_bytes(&bytes[ptr..ptr + NODE_INFO_SIZE])
+                .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
             nodes.push(node_info);
             ptr += NODE_INFO_SIZE;
         }
@@ -60,9 +58,9 @@ impl InfernoTile {
                     "Invalid tile: not enough bytes for specified transition count"
                 ));
             }
-            let transition = transmute::<[u8; NODE_TRANSITION_SIZE], ValhallaNodeTransition>(
-                bytes[ptr..ptr + NODE_TRANSITION_SIZE].try_into()?,
-            );
+            let transition =
+                ValhallaNodeTransition::ref_from_bytes(&bytes[ptr..ptr + NODE_TRANSITION_SIZE])
+                    .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
             node_transitions.push(transition);
             ptr += NODE_TRANSITION_SIZE;
         }
@@ -73,17 +71,16 @@ impl InfernoTile {
                     "Invalid tile: not enough bytes for specified directed edge count"
                 ));
             }
-            let edge = transmute::<[u8; DIRECTED_EDGE_SIZE], ValhallaDirectedEdge>(
-                bytes[ptr..ptr + DIRECTED_EDGE_SIZE].try_into()?,
-            );
+            let edge = ValhallaDirectedEdge::ref_from_bytes(&bytes[ptr..ptr + DIRECTED_EDGE_SIZE])
+                .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
             directed_edges.push(edge);
             ptr += DIRECTED_EDGE_SIZE;
         }
 
         Ok(InfernoTile {
-            nodes,
-            node_transitions,
-            directed_edges,
+            nodes: nodes.into_iter().cloned().collect(),
+            node_transitions: node_transitions.into_iter().cloned().collect(),
+            directed_edges: directed_edges.into_iter().cloned().collect(),
         })
     }
 }

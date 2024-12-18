@@ -1,8 +1,9 @@
 use bitfield_struct::bitfield;
 use rkyv::Archive;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 #[repr(C)]
-#[derive(Debug, Clone, Archive)]
+#[derive(Debug, Clone, Copy, Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaTileHeader {
     pub(crate) metadata: ValhallaTileHeaderMetadata,
 
@@ -62,7 +63,7 @@ pub struct ValhallaTileHeader {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaTileHeaderMetadata {
     // uint64_t graphid_ : 46;
     #[bits(46)]
@@ -94,7 +95,7 @@ pub struct ValhallaTileHeaderMetadata {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaTileHeaderCounts1 {
     // uint64_t nodecount_ : 21;
     #[bits(21)]
@@ -114,7 +115,7 @@ pub struct ValhallaTileHeaderCounts1 {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub(crate) struct ValhallaTileHeaderCounts2 {
     // uint32_t transitioncount_ : 22;
     #[bits(22)]
@@ -134,7 +135,7 @@ pub(crate) struct ValhallaTileHeaderCounts2 {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub(crate) struct ValhallaTileHeaderCounts3 {
     // uint64_t transfercount_ : 16;
     #[bits(16)]
@@ -158,7 +159,7 @@ pub(crate) struct ValhallaTileHeaderCounts3 {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub(crate) struct ValhallaTileHeaderCounts4 {
     // uint64_t routecount_ : 12;
     #[bits(12)]
@@ -178,7 +179,7 @@ pub(crate) struct ValhallaTileHeaderCounts4 {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub(crate) struct ValhallaTileHeaderCounts5 {
     // uint64_t access_restriction_count_ : 24;
     #[bits(24)]

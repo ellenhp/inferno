@@ -1,8 +1,9 @@
 use bitfield_struct::bitfield;
 use rkyv::Archive;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 #[bitfield(u64)]
-#[derive(Archive)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaNodeTransition {
     // uint64_t endnode_ : 46;
     #[bits(46)]

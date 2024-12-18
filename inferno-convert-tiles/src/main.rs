@@ -15,17 +15,15 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut archive = tar::Archive::new(fs::File::open(&args.input)?);
     for entry in archive.entries()? {
-        let entry = entry?;
+        let mut entry = entry?;
         let path = format!("{:?}", entry.path()?);
         if path.ends_with("index.bin") {
             continue;
         }
         println!(r#"Converting "{}"..."#, path);
-        let bytes: Vec<u8> = entry
-            .bytes()
-            .map(|b| b.expect("Failed to unpack tile."))
-            .collect();
-        match unsafe { InfernoTile::from_valhalla(&bytes) } {
+        let mut bytes = Vec::new();
+        entry.read_to_end(&mut bytes)?;
+        match InfernoTile::from_valhalla(&bytes) {
             Ok(_) => {
                 println!(r#"Successfully converted "{}"!"#, path);
             }

@@ -1,13 +1,16 @@
 use bitfield_struct::bitfield;
 use rkyv::Archive;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 #[repr(C)]
-#[derive(Debug, Clone, Archive)]
+#[derive(Debug, Clone, Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaDirectedEdge {
     /// Mostly data related to edge restrictions.
-    pub(crate) restrictions: ValhallaDirectedEdgeRestrictions,
+    pub(crate) restrictions1: ValhallaDirectedEdgeRestrictions1,
+    pub(crate) restrictions2: ValhallaDirectedEdgeRestrictions2,
     pub(crate) data1: ValhallaDirectedEdgeData1,
     pub(crate) data2: ValhallaDirectedEdgeData2,
+    pub(crate) data3: ValhallaDirectedEdgeData3,
 
     // Stop impact among edges
     // struct StopImpact {
@@ -29,12 +32,12 @@ pub struct ValhallaDirectedEdge {
     // StopOrLine stopimpact_;
 
     // This is the "next uint32_t" bitfield referred to previously.
-    pub(crate) data3: ValhallaDirectedEdgeData3,
+    pub(crate) data4: ValhallaDirectedEdgeData3,
 }
 
-#[bitfield(u128)]
-#[derive(Archive)]
-pub struct ValhallaDirectedEdgeRestrictions {
+#[bitfield(u64)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
+pub struct ValhallaDirectedEdgeRestrictions1 {
     // // 1st 8-byte word
     // uint64_t endnode_ : 46;
     /// End node of the directed edge
@@ -54,6 +57,7 @@ pub struct ValhallaDirectedEdgeRestrictions {
     /// Is the edge info forward or reverse
     #[bits(1)]
     pub(crate) is_forward: bool,
+
     // uint64_t leaves_tile_ : 1;
     /// Does directed edge end in a different tile?
     #[bits(1)]
@@ -62,7 +66,11 @@ pub struct ValhallaDirectedEdgeRestrictions {
     /// Does the edge cross into new country
     #[bits(1)]
     pub(crate) country_crossing: bool,
+}
 
+#[bitfield(u64)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
+pub struct ValhallaDirectedEdgeRestrictions2 {
     // // 2nd 8 byte word
     // uint64_t edgeinfo_offset_ : 25;
     /// Offset to edge data
@@ -94,8 +102,8 @@ pub struct ValhallaDirectedEdgeRestrictions {
     pub(crate) not_thru: bool,
 }
 
-#[bitfield(u128)]
-#[derive(Archive)]
+#[bitfield(u64)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaDirectedEdgeData1 {
     // // 3rd 8-byte word. Note: speed values above 250 for special cases (closures, construction)
     // uint64_t speed_ : 8;
@@ -146,6 +154,7 @@ pub struct ValhallaDirectedEdgeData1 {
     // Edge is part of a roundabout
     #[bits(1)]
     pub(crate) roundabout: bool,
+
     // uint64_t truck_route_ : 1;
     // Edge that is part of a truck route/network
     #[bits(1)]
@@ -154,7 +163,11 @@ pub struct ValhallaDirectedEdgeData1 {
     // Does this edge have a predicted speed records?
     #[bits(1)]
     pub(crate) predicted_speed: bool,
+}
 
+#[bitfield(u64)]
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
+pub(crate) struct ValhallaDirectedEdgeData2 {
     // // 4th 8-byte word
     // uint64_t forwardaccess_ : 12;
     // Access (bit mask) in forward direction (see graphconstants.h)
@@ -274,8 +287,8 @@ pub struct ValhallaDirectedEdgeData1 {
 }
 
 #[bitfield(u64)]
-#[derive(Archive)]
-pub struct ValhallaDirectedEdgeData2 {
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
+pub struct ValhallaDirectedEdgeData3 {
     // // 5th 8-byte word
     // uint64_t turntype_ : 24;
     #[bits(24)]
@@ -300,8 +313,8 @@ pub struct ValhallaDirectedEdgeData2 {
 }
 
 #[bitfield(u32)]
-#[derive(Archive)]
-pub struct ValhallaDirectedEdgeData3 {
+#[derive(Archive, FromBytes, KnownLayout, Immutable)]
+pub struct ValhallaDirectedEdgeData4 {
     // uint32_t localedgeidx_ : 7;
     // Index of the edge on the local level
     #[bits(7)]
