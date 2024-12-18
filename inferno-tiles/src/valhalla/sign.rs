@@ -1,6 +1,8 @@
 use bitfield_struct::bitfield;
+use rkyv::Archive;
 
 #[bitfield(u64)]
+#[derive(Archive)]
 pub struct ValhallaSign {
     // kMaxTileEdgeCount in nodeinfo.h: 22 bits
     // uint32_t index_ : 22;

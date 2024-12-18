@@ -1,8 +1,9 @@
 [workspace]
 
 members = [
-    "inferno-algorithms",
+    "inferno-algorithms", 
+    "inferno-convert-tiles",
     "inferno-tiles",
 ]
 
-workspace.resolver = "2"
+resolver = "2"
