@@ -1,9 +1,10 @@
-use std::fmt::Display;
+use std::{fmt::Display, marker::PhantomData};
 
 use rkyv::Archive;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Archive)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Archive, KnownLayout, FromBytes, Immutable)]
 pub struct TileId {
     pub(crate) id: u64,
 }
@@ -22,19 +23,24 @@ impl Display for TileId {
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct GraphEntityId {
+pub struct GraphEntityId<Inner> {
     pub(crate) graph_entity_id: u64,
+    _phantom: PhantomData<Inner>,
 }
 
-impl GraphEntityId {
+impl<Inner> GraphEntityId<Inner> {
     #[inline]
     pub fn new(graph_entity_id: u64) -> Self {
-        Self { graph_entity_id }
+        Self {
+            graph_entity_id,
+            _phantom: PhantomData,
+        }
     }
 
-    pub fn from_tile_index(tile: &TileId, index: usize) -> GraphEntityId {
+    pub fn from_tile_index(tile: &TileId, index: usize) -> GraphEntityId<Inner> {
         Self {
             graph_entity_id: tile.id | ((index as u64) << 25),
+            _phantom: PhantomData,
         }
     }
 
@@ -54,7 +60,7 @@ impl GraphEntityId {
     }
 }
 
-impl Display for GraphEntityId {
+impl<Inner> Display for GraphEntityId<Inner> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.graph_entity_id)
     }

@@ -1,26 +1,32 @@
 pub mod checked_vec;
 pub mod graph;
 
+use std::collections::HashMap;
+
 use checked_vec::CheckedVec;
 use rkyv::Archive;
 use tracing::{debug, instrument, trace, warn};
 use zerocopy::FromBytes;
 
-use crate::valhalla::{
-    access_restrictions::ValhallaAccessRestriction,
-    admin::ValhallaAdmin,
-    directed_edge::ValhallaDirectedEdge,
-    directed_edge_ext::ValhallaDirectedEdgeExt,
-    graph_id::{GraphEntityId, TileId},
-    node_info::ValhallaNodeInfo,
-    node_transition::ValhallaNodeTransition,
-    sign::ValhallaSign,
-    tile_header::ValhallaTileHeader,
-    transit_departure::ValhallaTransitDeparture,
-    transit_route::ValhallaTransitRoute,
-    transit_schedule::ValhallaTransitSchedule,
-    transit_stop::ValhallaTransitStop,
-    transit_transfer::ValhallaTransitTransfer,
+use crate::{
+    geomath::LatLng,
+    valhalla::{
+        access_restrictions::ValhallaAccessRestriction,
+        admin::ValhallaAdmin,
+        directed_edge::ValhallaDirectedEdge,
+        directed_edge_ext::ValhallaDirectedEdgeExt,
+        edge_info::ValhallaEdgeInfo,
+        graph_id::{GraphEntityId, TileId},
+        node_info::ValhallaNodeInfo,
+        node_transition::ValhallaNodeTransition,
+        sign::ValhallaSign,
+        tile_header::ValhallaTileHeader,
+        transit_departure::ValhallaTransitDeparture,
+        transit_route::ValhallaTransitRoute,
+        transit_schedule::ValhallaTransitSchedule,
+        transit_stop::ValhallaTransitStop,
+        transit_transfer::ValhallaTransitTransfer,
+    },
 };
 
 #[derive(Clone, Debug, Archive)]
@@ -31,6 +37,7 @@ pub struct InfernoTile {
     node_transitions: CheckedVec<ValhallaNodeTransition>,
     directed_edges: CheckedVec<ValhallaDirectedEdge>,
     access_restrictions: CheckedVec<ValhallaAccessRestriction>,
+    edge_infos: CheckedVec<ValhallaEdgeInfo>,
 }
 
 const HEADER_SIZE: usize = size_of::<ValhallaTileHeader>();
@@ -46,6 +53,7 @@ const TRANSIT_SCHEDULE_SIZE: usize = size_of::<ValhallaTransitSchedule>();
 const TRANSIT_TRANSFER_SIZE: usize = size_of::<ValhallaTransitTransfer>();
 const SIGN_SIZE: usize = size_of::<ValhallaSign>();
 const ADMIN_SIZE: usize = size_of::<ValhallaAdmin>();
+const EDGE_INFO_SIZE: usize = size_of::<ValhallaEdgeInfo>();
 
 impl InfernoTile {
     #[instrument(skip(bytes))]
@@ -61,6 +69,9 @@ impl InfernoTile {
         let mut node_transitions = CheckedVec::new(tile_id);
         let mut directed_edges = CheckedVec::new(tile_id);
         let mut access_restrictions = CheckedVec::new(tile_id);
+        let mut edge_infos = CheckedVec::new(tile_id);
+
+        let mut edge_info_offset_map: HashMap<usize, usize> = HashMap::new();
 
         let mut ptr = HEADER_SIZE;
 
@@ -119,9 +130,37 @@ impl InfernoTile {
                     "Invalid tile: not enough bytes for specified directed edge count"
                 ));
             }
-            let edge = ValhallaDirectedEdge::ref_from_bytes(&bytes[ptr..ptr + DIRECTED_EDGE_SIZE])
-                .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
-            directed_edges.push(edge.clone());
+            let mut edge =
+                ValhallaDirectedEdge::ref_from_bytes(&bytes[ptr..ptr + DIRECTED_EDGE_SIZE])
+                    .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?
+                    .clone();
+
+            let edge_info_idx = if let Some(index) =
+                edge_info_offset_map.get(&edge.restrictions2.edge_info_offset())
+            {
+                *index
+            } else {
+                let new_idx = edge_infos.len();
+                edge_info_offset_map.insert(edge.restrictions2.edge_info_offset(), new_idx);
+                let start_ptr =
+                    header.edge_info_offset as usize + edge.restrictions2.edge_info_offset();
+                edge_infos.push(
+                    ValhallaEdgeInfo::ref_from_bytes(&bytes[start_ptr..start_ptr + EDGE_INFO_SIZE])
+                        .map_err(|err| anyhow::anyhow!("Failed ValhallaEdgeInfo cast: {:?}", err))?
+                        .clone(),
+                );
+                new_idx
+            };
+            edge.restrictions2
+                .set_edge_info_offset_checked(edge_info_idx)
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to rewrite ValhallaDirectedEdge edge_info_offset: {:?}",
+                        err
+                    )
+                })?;
+
+            directed_edges.push(edge);
             ptr += DIRECTED_EDGE_SIZE;
         }
         trace!(
@@ -179,38 +218,23 @@ impl InfernoTile {
             node_transitions,
             directed_edges,
             access_restrictions,
+            edge_infos,
         })
     }
 
-    pub fn base_lat_lng(&self) -> (f32, f32) {
-        (self.header.base_ll[0] as f32, self.header.base_ll[1] as f32)
+    pub fn base_lat_lng(&self) -> LatLng {
+        LatLng::new(self.header.base_ll[1] as f64, self.header.base_ll[0] as f64)
     }
 
     pub fn tile_id(&self) -> TileId {
         self.tile_id
     }
 
-    pub(crate) fn node_slice<'a>(
-        &'a self,
-        start: GraphEntityId,
-        count: usize,
-    ) -> &'a [ValhallaNodeInfo] {
-        self.nodes.slice(start, count)
-    }
-
     pub(crate) fn edge_slice<'a>(
         &'a self,
-        start: GraphEntityId,
+        start: GraphEntityId<ValhallaDirectedEdge>,
         count: usize,
     ) -> &'a [ValhallaDirectedEdge] {
         self.directed_edges.slice(start, count)
-    }
-
-    pub(crate) fn transition_slice<'a>(
-        &'a self,
-        start: GraphEntityId,
-        count: usize,
-    ) -> &'a [ValhallaNodeTransition] {
-        self.node_transitions.slice(start, count)
     }
 }

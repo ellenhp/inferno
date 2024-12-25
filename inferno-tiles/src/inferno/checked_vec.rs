@@ -1,8 +1,9 @@
-use std::ops::Index;
-
 use rkyv::Archive;
 
-use crate::valhalla::graph_id::{GraphEntityId, TileId};
+use crate::valhalla::{
+    graph_id::{GraphEntityId, TileId},
+    VEntity,
+};
 
 #[derive(Debug, Clone, Archive)]
 pub struct CheckedVec<Inner: Archive> {
@@ -22,7 +23,7 @@ impl<Inner: Archive> CheckedVec<Inner> {
         self.inner.push(value);
     }
 
-    pub fn get(&self, index: &GraphEntityId) -> Option<&Inner> {
+    pub fn get<'a>(&'a self, index: &GraphEntityId<Inner>) -> Option<VEntity<&'a Inner>> {
         if index.tile_id() != self.graph_id {
             if tracing::enabled!(tracing::Level::WARN) {
                 tracing::warn!(
@@ -34,7 +35,7 @@ impl<Inner: Archive> CheckedVec<Inner> {
         }
         let index = index.graph_index();
         if index < self.inner.len() {
-            Some(&self.inner[index])
+            Some(VEntity::new(self.graph_id, &self.inner[index]))
         } else {
             None
         }
@@ -85,22 +86,7 @@ impl<Inner: Archive> CheckedVec<Inner> {
         self.inner.reserve_exact(additional);
     }
 
-    pub fn slice(&self, start: GraphEntityId, count: usize) -> &[Inner] {
+    pub fn slice(&self, start: GraphEntityId<Inner>, count: usize) -> &[Inner] {
         &self.inner[start.graph_index()..start.graph_index() + count]
-    }
-}
-
-impl<Inner: Archive> Index<GraphEntityId> for CheckedVec<Inner> {
-    type Output = Inner;
-
-    fn index(&self, index: GraphEntityId) -> &Self::Output {
-        if index.tile_id() != self.graph_id {
-            tracing::error!(
-                "Error in indexing: Attempted to access element at incorrect tile ID. Expected {}, got {}",
-                self.graph_id,
-                index.tile_id()
-            );
-        }
-        &self.inner[index.graph_index()]
     }
 }

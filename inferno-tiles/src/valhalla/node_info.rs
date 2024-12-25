@@ -2,7 +2,7 @@ use bitfield_struct::bitfield;
 use rkyv::Archive;
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
-use crate::inferno::InfernoTile;
+use crate::{geomath::LatLng, inferno::InfernoTile};
 
 use super::{directed_edge::ValhallaDirectedEdge, graph_id::GraphEntityId};
 
@@ -25,12 +25,12 @@ pub struct ValhallaNodeInfo {
 }
 
 impl ValhallaNodeInfo {
-    pub fn position(&self, tile: &InfernoTile) -> (f64, f64) {
+    pub fn position(&self, tile: &InfernoTile) -> LatLng {
         let lat =
-            tile.base_lat_lng().0 as f64 + (self.position_info.lat_offset() as f64 / 1000000.0);
+            tile.base_lat_lng().lat() as f64 + (self.position_info.lat_offset() as f64 / 1000000.0);
         let lng =
-            tile.base_lat_lng().1 as f64 + (self.position_info.lon_offset() as f64 / 1000000.0);
-        (lat, lng)
+            tile.base_lat_lng().lng() as f64 + (self.position_info.lon_offset() as f64 / 1000000.0);
+        LatLng::new(lat, lng)
     }
 
     pub(crate) fn edges<'a>(&self, tile: &'a InfernoTile) -> &'a [ValhallaDirectedEdge] {

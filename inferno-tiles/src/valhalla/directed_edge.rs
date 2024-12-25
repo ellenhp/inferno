@@ -1,9 +1,13 @@
 use bitfield_struct::bitfield;
 use rkyv::Archive;
-use tracing::debug;
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
-use super::graph_id::GraphEntityId;
+use super::{
+    edge_info::ValhallaEdgeInfo,
+    graph_id::{GraphEntityId, TileId},
+    node_info::ValhallaNodeInfo,
+    HasEntityPointerInner,
+};
 
 #[repr(C)]
 #[derive(Debug, Clone, Archive, FromBytes, KnownLayout, Immutable)]
@@ -39,14 +43,18 @@ pub struct ValhallaDirectedEdge {
 }
 
 impl ValhallaDirectedEdge {
-    pub fn end_node(&self) -> GraphEntityId {
-        // GraphEntityId::from_tile_index(&tile.tile_id(), self.restrictions1.end_node() as usize)
-        debug!("End node: {:x}", self.restrictions1.end_node());
+    pub fn end_node(&self) -> GraphEntityId<ValhallaNodeInfo> {
         GraphEntityId::new(self.restrictions1.end_node())
     }
 
     pub fn opposing_edge_index(&self) -> usize {
         self.restrictions1.opp_index()
+    }
+}
+
+impl HasEntityPointerInner<ValhallaEdgeInfo> for ValhallaDirectedEdge {
+    fn get_unchecked(&self, tile_id: &TileId) -> GraphEntityId<ValhallaEdgeInfo> {
+        GraphEntityId::from_tile_index(tile_id, self.restrictions2.edge_info_offset())
     }
 }
 
@@ -90,7 +98,7 @@ pub struct ValhallaDirectedEdgeRestrictions2 {
     // uint64_t edgeinfo_offset_ : 25;
     /// Offset to edge data
     #[bits(25)]
-    pub(crate) edge_info_offset: u32,
+    pub(crate) edge_info_offset: usize,
     // uint64_t access_restriction_ : 12;
     /// General restriction or access condition (per mode)
     #[bits(12)]
