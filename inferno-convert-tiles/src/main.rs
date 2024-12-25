@@ -1,7 +1,7 @@
 use std::{fs, io::Read};
 
 use clap::Parser;
-use inferno_tiles::inferno::InfernoTile;
+use inferno_tiles::inferno::{graph::InfernoTileGraph, InfernoTile};
 use tracing::{debug, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -24,6 +24,7 @@ fn main() -> Result<(), anyhow::Error> {
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let mut archive = tar::Archive::new(fs::File::open(&args.input)?);
+    let mut tiles = Vec::new();
     for entry in archive.entries()? {
         let mut entry = entry?;
         let path = if let Some(path) = entry.path()?.to_str() {
@@ -40,14 +41,19 @@ fn main() -> Result<(), anyhow::Error> {
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes)?;
         match InfernoTile::from_valhalla(&bytes) {
-            Ok(_) => {
+            Ok(tile) => {
                 info!(r#"Successfully converted "{}"!"#, path);
+                tiles.push(tile);
             }
             Err(err) => {
                 warn!(r#"Failed to convert "{}": {}"#, path, err);
             }
         }
     }
+
+    info!("Testing tile loading...");
+    InfernoTileGraph::new(&tiles);
+    info!("All tiles loaded successfully!");
 
     Ok(())
 }

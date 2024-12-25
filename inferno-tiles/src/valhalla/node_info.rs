@@ -2,6 +2,10 @@ use bitfield_struct::bitfield;
 use rkyv::Archive;
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
+use crate::inferno::InfernoTile;
+
+use super::{directed_edge::ValhallaDirectedEdge, graph_id::GraphEntityId};
+
 #[repr(C)]
 #[derive(Debug, Clone, Archive, FromBytes, KnownLayout, Immutable)]
 pub struct ValhallaNodeInfo {
@@ -18,6 +22,21 @@ pub struct ValhallaNodeInfo {
     /// the exact connection point. If the highest bit is set its a lon lat otherwise its a way id
     /// uint64_t headings_;
     pub(crate) headings: u64,
+}
+
+impl ValhallaNodeInfo {
+    pub fn position(&self, tile: &InfernoTile) -> (f64, f64) {
+        let lat =
+            tile.base_lat_lng().0 as f64 + (self.position_info.lat_offset() as f64 / 1000000.0);
+        let lng =
+            tile.base_lat_lng().1 as f64 + (self.position_info.lon_offset() as f64 / 1000000.0);
+        (lat, lng)
+    }
+
+    pub(crate) fn edges<'a>(&self, tile: &'a InfernoTile) -> &'a [ValhallaDirectedEdge] {
+        let edge_entity = GraphEntityId::from_tile_index(&tile.tile_id(), self.data1.edge_index());
+        tile.edge_slice(edge_entity, self.data1.edge_count())
+    }
 }
 
 #[bitfield(u64)]
@@ -55,12 +74,12 @@ pub struct ValhallaNodeInfoData1 {
     // uint64_t edge_index_ : 21;
     /// Index within the node's tile of its first outbound directed edge
     #[bits(21)]
-    pub(crate) edge_index: u32,
+    pub(crate) edge_index: usize,
 
     // uint64_t edge_count_ : 7;
     /// Number of outbound edges (on this level)
     #[bits(7)]
-    pub(crate) edge_count: u32,
+    pub(crate) edge_count: usize,
 
     // uint64_t admin_index_ : 12;
     /// Index into this tile's administrative information list

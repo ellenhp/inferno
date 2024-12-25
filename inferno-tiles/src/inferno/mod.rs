@@ -1,22 +1,36 @@
+pub mod checked_vec;
+pub mod graph;
+
+use checked_vec::CheckedVec;
 use rkyv::Archive;
 use tracing::{debug, instrument, trace, warn};
 use zerocopy::FromBytes;
 
 use crate::valhalla::{
-    access_restrictions::ValhallaAccessRestriction, admin::ValhallaAdmin,
-    directed_edge::ValhallaDirectedEdge, directed_edge_ext::ValhallaDirectedEdgeExt,
-    node_info::ValhallaNodeInfo, node_transition::ValhallaNodeTransition, sign::ValhallaSign,
-    tile_header::ValhallaTileHeader, transit_departure::ValhallaTransitDeparture,
-    transit_route::ValhallaTransitRoute, transit_schedule::ValhallaTransitSchedule,
-    transit_stop::ValhallaTransitStop, transit_transfer::ValhallaTransitTransfer,
+    access_restrictions::ValhallaAccessRestriction,
+    admin::ValhallaAdmin,
+    directed_edge::ValhallaDirectedEdge,
+    directed_edge_ext::ValhallaDirectedEdgeExt,
+    graph_id::{GraphEntityId, TileId},
+    node_info::ValhallaNodeInfo,
+    node_transition::ValhallaNodeTransition,
+    sign::ValhallaSign,
+    tile_header::ValhallaTileHeader,
+    transit_departure::ValhallaTransitDeparture,
+    transit_route::ValhallaTransitRoute,
+    transit_schedule::ValhallaTransitSchedule,
+    transit_stop::ValhallaTransitStop,
+    transit_transfer::ValhallaTransitTransfer,
 };
 
 #[derive(Clone, Debug, Archive)]
 pub struct InfernoTile {
-    nodes: Vec<ValhallaNodeInfo>,
-    node_transitions: Vec<ValhallaNodeTransition>,
-    directed_edges: Vec<ValhallaDirectedEdge>,
-    access_restrictions: Vec<ValhallaAccessRestriction>,
+    tile_id: TileId,
+    header: ValhallaTileHeader,
+    nodes: CheckedVec<ValhallaNodeInfo>,
+    node_transitions: CheckedVec<ValhallaNodeTransition>,
+    directed_edges: CheckedVec<ValhallaDirectedEdge>,
+    access_restrictions: CheckedVec<ValhallaAccessRestriction>,
 }
 
 const HEADER_SIZE: usize = size_of::<ValhallaTileHeader>();
@@ -42,10 +56,11 @@ impl InfernoTile {
         let header = ValhallaTileHeader::ref_from_bytes(&bytes[0..HEADER_SIZE])
             .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
 
-        let mut nodes = Vec::new();
-        let mut node_transitions = Vec::new();
-        let mut directed_edges = Vec::new();
-        let mut access_restrictions = Vec::new();
+        let tile_id = TileId::new(header.metadata.graphid());
+        let mut nodes = CheckedVec::new(tile_id);
+        let mut node_transitions = CheckedVec::new(tile_id);
+        let mut directed_edges = CheckedVec::new(tile_id);
+        let mut access_restrictions = CheckedVec::new(tile_id);
 
         let mut ptr = HEADER_SIZE;
 
@@ -71,7 +86,7 @@ impl InfernoTile {
             }
             let node_info = ValhallaNodeInfo::ref_from_bytes(&bytes[ptr..ptr + NODE_INFO_SIZE])
                 .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
-            nodes.push(node_info);
+            nodes.push(node_info.clone());
             ptr += NODE_INFO_SIZE;
         }
         trace!(
@@ -89,7 +104,7 @@ impl InfernoTile {
             let transition =
                 ValhallaNodeTransition::ref_from_bytes(&bytes[ptr..ptr + NODE_TRANSITION_SIZE])
                     .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
-            node_transitions.push(transition);
+            node_transitions.push(transition.clone());
             ptr += NODE_TRANSITION_SIZE;
         }
         trace!(
@@ -106,7 +121,7 @@ impl InfernoTile {
             }
             let edge = ValhallaDirectedEdge::ref_from_bytes(&bytes[ptr..ptr + DIRECTED_EDGE_SIZE])
                 .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
-            directed_edges.push(edge);
+            directed_edges.push(edge.clone());
             ptr += DIRECTED_EDGE_SIZE;
         }
         trace!(
@@ -134,7 +149,7 @@ impl InfernoTile {
                 &bytes[ptr..ptr + ACCESS_RESTRICTION_SIZE],
             )
             .map_err(|err| anyhow::anyhow!("Failed ValhallaTileHeader cast: {:?}", err))?;
-            access_restrictions.push(edge);
+            access_restrictions.push(edge.clone());
             ptr += ACCESS_RESTRICTION_SIZE;
         }
         trace!(
@@ -158,10 +173,44 @@ impl InfernoTile {
         );
 
         Ok(InfernoTile {
-            nodes: nodes.into_iter().cloned().collect(),
-            node_transitions: node_transitions.into_iter().cloned().collect(),
-            directed_edges: directed_edges.into_iter().cloned().collect(),
-            access_restrictions: access_restrictions.into_iter().cloned().collect(),
+            tile_id: TileId::new(header.metadata.graphid()),
+            header: header.clone(),
+            nodes,
+            node_transitions,
+            directed_edges,
+            access_restrictions,
         })
+    }
+
+    pub fn base_lat_lng(&self) -> (f32, f32) {
+        (self.header.base_ll[0] as f32, self.header.base_ll[1] as f32)
+    }
+
+    pub fn tile_id(&self) -> TileId {
+        self.tile_id
+    }
+
+    pub(crate) fn node_slice<'a>(
+        &'a self,
+        start: GraphEntityId,
+        count: usize,
+    ) -> &'a [ValhallaNodeInfo] {
+        self.nodes.slice(start, count)
+    }
+
+    pub(crate) fn edge_slice<'a>(
+        &'a self,
+        start: GraphEntityId,
+        count: usize,
+    ) -> &'a [ValhallaDirectedEdge] {
+        self.directed_edges.slice(start, count)
+    }
+
+    pub(crate) fn transition_slice<'a>(
+        &'a self,
+        start: GraphEntityId,
+        count: usize,
+    ) -> &'a [ValhallaNodeTransition] {
+        self.node_transitions.slice(start, count)
     }
 }

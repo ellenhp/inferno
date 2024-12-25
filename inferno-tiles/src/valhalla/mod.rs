@@ -2,6 +2,7 @@ pub(crate) mod access_restrictions;
 pub(crate) mod admin;
 pub(crate) mod directed_edge;
 pub(crate) mod directed_edge_ext;
+pub(crate) mod graph_id;
 pub(crate) mod node_info;
 pub(crate) mod node_transition;
 pub(crate) mod sign;

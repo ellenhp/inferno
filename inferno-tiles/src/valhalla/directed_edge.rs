@@ -1,6 +1,9 @@
 use bitfield_struct::bitfield;
 use rkyv::Archive;
+use tracing::debug;
 use zerocopy::{FromBytes, Immutable, KnownLayout};
+
+use super::graph_id::GraphEntityId;
 
 #[repr(C)]
 #[derive(Debug, Clone, Archive, FromBytes, KnownLayout, Immutable)]
@@ -27,12 +30,24 @@ pub struct ValhallaDirectedEdge {
     //   StopImpact s;
     //   uint32_t lineid;
     // };
-    pub(crate) stop_impact_union_line_id: u64,
+    pub(crate) stop_impact_union_line_id: u32,
     // // 6th 8-byte word (this union plus the next uint32_t bitfield)
     // StopOrLine stopimpact_;
 
     // This is the "next uint32_t" bitfield referred to previously.
-    pub(crate) data4: ValhallaDirectedEdgeData3,
+    pub(crate) data4: ValhallaDirectedEdgeData4,
+}
+
+impl ValhallaDirectedEdge {
+    pub fn end_node(&self) -> GraphEntityId {
+        // GraphEntityId::from_tile_index(&tile.tile_id(), self.restrictions1.end_node() as usize)
+        debug!("End node: {:x}", self.restrictions1.end_node());
+        GraphEntityId::new(self.restrictions1.end_node())
+    }
+
+    pub fn opposing_edge_index(&self) -> usize {
+        self.restrictions1.opp_index()
+    }
 }
 
 #[bitfield(u64)]
@@ -52,7 +67,7 @@ pub struct ValhallaDirectedEdgeRestrictions1 {
     // uint64_t opp_index_ : 7;
     /// Opposing directed edge index
     #[bits(7)]
-    pub(crate) opp_index: u64,
+    pub(crate) opp_index: usize,
     // uint64_t forward_ : 1;
     /// Is the edge info forward or reverse
     #[bits(1)]
